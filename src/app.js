@@ -108,6 +108,26 @@ app.put("/tasks/:id", (req, res) => {
     });
 });
 
+// delete /tasks/:id
+const sql_del_id = "DELETE FROM tasks WHERE id = ?;";
+app.delete("/tasks/:id", (req, res) => {
+    const {id} = req.params;
+    const itemId = Number(id);
+
+    db.run(sql_del_id, [itemId], function(err){
+        if(err){
+            res.status(500).json({error: "db error"});
+            return;
+        }
+        if(!this.changes){
+            res.status(404).json({error: "task not found"});
+            return;
+        }
+
+        res.sendStatus(204);
+    });
+});
+
 
 // server in ascolto
 app.listen(port, () => {
