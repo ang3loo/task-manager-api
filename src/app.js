@@ -1,41 +1,35 @@
 const express = require("express");
 const db = require("./database");
 
+const {getAllTasks, getTaskById, createTask, updateTaskById, deleteTaskById} = require("./tasks")
+
 const app = express();
 const port = 3000;
 
-// rotta GET /health
-app.get("/health", (req, res) => {
-    res.json({"status": "ok"});
+app.use(express.json());
+
+// server in ascolto
+app.listen(port, () => {
+    console.log(`The server is running on port http://localhost:${port}/tasks`);
 });
 
+
 // rotta GET /tasks
-const sql = "SELECT * FROM tasks;";
 app.get("/tasks", (req, res) => {
-    db.all(sql, (err, rows) => {
-        if (err){
-            res.status(500).json({error: "Database error"});
-            return;
-        }
+    getAllTasks((err, rows) => {
+        if (err) return res.status(500).json({error: "Database error"});
         res.json(rows);
     });
 });
 
-const sql_get_id = "SELECT * FROM tasks WHERE id = ?;";
 app.get("/tasks/:id", (req, res) => {
-    const {id} = req.params;
-    db.get(sql_get_id, [id], (err, row) => {
-        //console.log(id)
-        if(err){
-            res.status(500).json({error: "db error"});
-            return;
-        }
+    const id = Number(req.params.id);
+    getTaskById(id, (err, row) => {
+        
+        if(err) return res.status(500).json({error: "db error"});
 
         // if id is not found
-        if(!row){
-            res.status(404).json({error: "task not found"});
-            return;
-        }
+        if(!row) return res.status(404).json({error: "task not found"});
 
         res.status(200).json({
             id: row.id,
@@ -47,23 +41,14 @@ app.get("/tasks/:id", (req, res) => {
 });
 
 // rotta POST /tasks
-app.use(express.json());
 app.post("/tasks", (req, res) => {
     const { title, description } = req.body;
-    if(!title){
-        res.status(400).json({error: "No title found"});
-        return;
-    }
-    
-    const sql_insert = `INSERT INTO tasks (title, description) VALUES (?, ?)`;
-    db.run(sql_insert,[title, description], function (err){
-        
-        if (err){
-            res.status(500).json({error: "Errore nell'insert..."});
-            return;
-        }
+    if(!title) return res.status(400).json({error: "No title found"});
 
-        //console.log(this.lastID);
+    createTask([title, description], function (err){
+        
+        if (err) return res.status(500).json({error: "Errore nell'insert..."});
+
         res.status(201).json({
             id: this.lastID,
             title,
@@ -74,29 +59,16 @@ app.post("/tasks", (req, res) => {
 });
 
 
-const sql_update_all = `UPDATE tasks
-SET title = ?, description = ?, completed = ?
-WHERE id = ?;
-`;
 
 app.put("/tasks/:id", (req, res) => {
-    const {id} = req.params;
+    const id = Number(req.params.id);
     const {title, description, completed} = req.body;
 
-    if(!title){
-        res.status(400).json({error: "Title required"});
-        return;
-    }
+    if(!title) return res.status(400).json({error: "Title required"});
 
-    db.run(sql_update_all, [title, description, completed, id], function(err){
-        if(err){
-            res.status(500).json({error: "Database error"});
-            return;
-        }
-        if(!this.changes){
-            res.status(404).json({error: "Task not found"});
-            return;
-        }
+    updateTaskById([title, description, completed, id], function(err){
+        if(err) return res.status(500).json({error: "Database error"});
+        if(!this.changes) return res.status(404).json({error: "Task not found"});
 
         res.status(200).json({
             id,
@@ -104,32 +76,19 @@ app.put("/tasks/:id", (req, res) => {
             description,
             completed
         });
-
     });
 });
 
 // delete /tasks/:id
-const sql_del_id = "DELETE FROM tasks WHERE id = ?;";
 app.delete("/tasks/:id", (req, res) => {
-    const {id} = req.params;
-    const itemId = Number(id);
+    const id = Number(req.params.id);
 
-    db.run(sql_del_id, [itemId], function(err){
-        if(err){
-            res.status(500).json({error: "db error"});
-            return;
-        }
-        if(!this.changes){
-            res.status(404).json({error: "task not found"});
-            return;
-        }
+    deleteTaskById(id, function(err){
+        if(err) return res.status(500).json({error: "db error"});
+        if(!this.changes) return res.status(404).json({error: "task not found"});
 
         res.sendStatus(204);
     });
 });
 
 
-// server in ascolto
-app.listen(port, () => {
-    console.log(`The server is running on port http://localhost:${port}/tasks`);
-});
